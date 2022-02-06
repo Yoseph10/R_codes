@@ -1,0 +1,392 @@
+---
+title: "Lista 1"
+author: "Yoseph Ayala"
+output: html_document
+#output: rmdformats::readthedown
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##### Diplomatura de Diplomatura de Especialización en Ciencia de Datos para las Ciencias Sociales y la Gestión Pública 2021-01<br> 
+
+##### Curso: Fundamentos de R para CCSS y Gestión Pública<br> 
+
+____
+
+
+Para mejorar el formato del markdown
+
+#install.packages("rmdformats")
+#ibrary(rmdformats)
+
+
+**<span style="color:blue">ÍNDICE</span>**
+
+1. [Importación de datos](#id1)
+2. [Selección de región](#id2)
+3. [Reporte descriptivo](#id3)
+4. [Diagnóstico](#id4)
+
+
+```{r, echo=FALSE}
+rm(list=ls())
+```
+
+```{r}
+#library(rmdformats)
+
+```
+
+Seteamos la ruta de trabajo
+```{r}
+setwd("C:/Diplomado QLAB/R_basico/Lista 1")
+```
+
+### **[1. IMPORTACIÓN DE DATOS](#mark)<a name="id1"></a>**
+
+```{r, warning=FALSE}
+library(rio)
+```
+
+Importamos las bases de datos a utilizar
+
+```{r}
+positivos<- import("positivos_covid-14.csv")
+fallecidos<- import("fallecidos_covid-14.csv")
+vacunados<- import("vacunas_covid.csv")
+
+```
+
+Realizamos un tratamiento previo a las fechas
+
+```{r, warning=FALSE}
+library(lubridate)
+```
+
+```{r}
+positivos$FECHA_RESULTADO=as.character(positivos$FECHA_RESULTADO)
+positivos$fecha=as.Date(positivos$FECHA_RESULTADO,"%Y%m%d")
+positivos$añomes<- as.factor(format(positivos$fecha,'%Y-%m')) 
+```
+
+```{r}
+fallecidos$FECHA_FALLECIMIENTO=as.character(fallecidos$FECHA_FALLECIMIENTO)
+fallecidos$fecha=as.Date(fallecidos$FECHA_FALLECIMIENTO,"%Y%m%d")
+fallecidos$añomes<- as.factor(format(fallecidos$fecha,'%Y-%m')) 
+```
+
+```{r}
+vacunados$FECHA_VACUNACION=as.character(vacunados$FECHA_VACUNACION)
+vacunados$fecha=as.Date(vacunados$FECHA_VACUNACION,"%Y%m%d")
+vacunados$añomes<- as.factor(format(vacunados$fecha,'%Y-%m')) 
+```
+
+### **[2. SELECCIÓN DE REGIÓN](#mark)<a name="id2"></a>**
+
+```{r, warning=FALSE}
+library(dplyr) 
+```
+
+Para eligir la región, observamos cómo está escrito Cajamarca en las distintas bases.
+
+```{r results='hide'}
+distinct(positivos,DEPARTAMENTO)
+distinct(fallecidos,DEPARTAMENTO)
+distinct(vacunados,DEPARTAMENTO)
+```
+Nos quedamos solo con la región de Cajamarca.
+
+```{r}
+positivos_c=filter(positivos,DEPARTAMENTO=="CAJAMARCA")
+fallecidos_c=filter(fallecidos,DEPARTAMENTO=="CAJAMARCA")
+vacunados_c=filter(vacunados,DEPARTAMENTO=="CAJAMARCA")
+```
+
+### **[3.REPORTE DESCRIPTIVO](#mark)<a name="id3"></a>**
+
+Solo se reportarán las tablas y resultados deseados. Para detalles del código empleado, revisar el script. Se han ocultado intencionalmente los códigos de este reporte.
+
+**3.1)** Tablas resúmenes de la cantidad de casos positivos nuevos por meses, el número de fallecidos por meses y la vacunación por meses.
+
+```{r, include=FALSE}
+tabla1_positivos <- positivos_c %>% 
+  group_by(añomes) %>%
+  summarise(positivos = n()) #Count number of rows by group
+tabla1_positivos <- as.data.frame(tabla1_positivos)
+```
+
+```{r}
+knitr::kable(tabla1_positivos, "pipe", align=c("l", "c", "c"))
+```
+
+```{r, include=FALSE}
+tabla1_fallecidos <- fallecidos_c %>% 
+  group_by(añomes) %>%
+  summarise(fallecidos = n()) #Count number of rows by group
+tabla1_fallecidos <- as.data.frame(tabla1_fallecidos)
+```
+
+```{r}
+knitr::kable(tabla1_fallecidos, "pipe", align=c("l", "c", "c"))
+```
+
+```{r, include=FALSE}
+tabla1_vacunados <- vacunados_c %>% 
+  group_by(añomes) %>%
+  summarise(vacunados = n()) #Count number of rows by group
+tabla1_vacunados <- as.data.frame(tabla1_vacunados)
+```
+
+```{r}
+knitr::kable(tabla1_vacunados, "pipe", align=c("l", "c", "c"))
+```
+
+**3.2)** La tasa de contagio por mes según la población de la región, la tasa de fallecidos por Covid-19 por mes según la población de la región y la tasa de vacunación por mes según la población de la región.
+
+
+Hallamos la tasa por 100 mil habitantes siguiendo la fórmula del Observatorio de la Violencia. Para ello, utilizamos la población proyectada para el 2021 en la región de Cajamarca, el cual es de 1455200 habitantes.
+
+```{r, include=FALSE}
+pob <- 1455200
+
+tabla2_positivos <- tabla1_positivos
+tabla2_positivos$tasa <-  (tabla2_positivos$positivos/pob)*100000
+tabla2_positivos <- as.data.frame(tabla2_positivos)
+```
+
+```{r}
+knitr::kable(tabla2_positivos, "pipe", align=c("l", "c", "c"))
+```
+
+```{r, include=FALSE}
+tabla2_fallecidos <- tabla1_fallecidos
+tabla2_fallecidos$tasa <-  (tabla2_fallecidos$fallecidos/pob)*100000
+tabla2_fallecidos <- as.data.frame(tabla2_fallecidos )
+```
+
+```{r}
+knitr::kable(tabla2_fallecidos , "pipe", align=c("l", "c", "c"))
+```
+
+```{r, include=FALSE}
+tabla2_vacunados <- tabla1_vacunados
+tabla2_vacunados$tasa <-  (tabla2_vacunados$vacunados/pob)*100000
+tabla2_vacunados <- as.data.frame(tabla2_vacunados)  
+```
+
+```{r}
+knitr::kable(tabla2_vacunados, "pipe", align=c("l", "c", "c"))
+```
+
+**3.3)** Creación de una tabla que muestra el porcentaje de letalidad por mes
+
+```{r, include=FALSE}
+#No se muestra enero del 2020 porque en ese mes no hubo ningún fallecido
+tabla3 <- inner_join(tabla1_fallecidos,tabla1_positivos,by="añomes")
+colnames(tabla3)[3] <- "contagios"
+tabla3$prc_letalidad <- tabla3$fallecidos/tabla3$contagios 
+tabla3 <- as.data.frame(tabla3) 
+```
+
+```{r}
+knitr::kable(tabla3, "pipe", align=c("l", "c", "c"))
+```
+
+**3.4)** Una tabla que muestra la cantidad contagios, la cantidad de fallecidos y las cantidad de personas vacunas por provincia.
+
+```{r, include=FALSE}
+
+#cantidad de positivos por provincia
+tabla4_positivos <- positivos_c %>% 
+  group_by(PROVINCIA) %>%
+  summarise(contagios = n()) 
+
+#cantidad de fallecidos por provincia
+tabla4_fallecidos <- fallecidos_c %>% 
+  group_by(PROVINCIA) %>%
+  summarise(fallecidos = n())
+
+#cantidad de vacunados por provincia
+tabla4_vacunados <- vacunados_c %>% 
+  group_by(PROVINCIA) %>%
+  summarise(vacunados = n()) 
+
+#juntamos las bases
+
+tabla4 <- inner_join(tabla4_positivos, tabla4_fallecidos, by="PROVINCIA")
+tabla4 <- inner_join(tabla4, tabla4_vacunados, by="PROVINCIA")
+
+tabla4 <- as.data.frame(tabla4) 
+```
+
+```{r}
+knitr::kable(tabla4, "pipe", align=c("l", "c", "c"))
+```
+
+**3.5)** Reporte de los 5 distritos con mayor cantidad de contagios
+
+```{r}
+#5 distritos con mayor cantidad de contagios
+tabla5.1_positivos <- head( positivos_c %>% 
+                    group_by(DISTRITO) %>%
+                    summarise(contagios = n()) %>% 
+                    #permite ordenar de forma descendente
+                    arrange(desc(contagios)), 5 )
+
+tabla5.1_positivos <- as.data.frame(tabla5.1_positivos)
+```
+
+```{r}
+knitr::kable(tabla5.1_positivos, "pipe", align=c("l", "c", "c"))
+```
+
+Reporte de los 5 distritos con mayor cantidad de fallecidos
+
+```{r}
+#5 distritos con mayor cantidad de fallecidos
+tabla5.1_fallecidos <-  head( fallecidos_c %>% 
+                        group_by(DISTRITO) %>%
+                        summarise(fallecidos = n()) %>% 
+                        #permite ordenar de forma descendente
+                        arrange(desc(fallecidos)), 5 )
+
+tabla5.1_fallecidos <- as.data.frame(tabla5.1_fallecidos) 
+```
+
+```{r}
+knitr::kable(tabla5.1_fallecidos, "pipe", align=c("l", "c", "c"))
+```
+
+Reportar de los 5 distritos con menor cantidad de contagios 
+
+```{r}
+#5 distritos con menor cantidad de contagios
+tabla5.2_positivos <-tail( positivos_c %>% 
+                      group_by(DISTRITO) %>%
+                      summarise(contagios = n()) %>% 
+                      #permite ordenar de forma descendente
+                      arrange(desc(contagios)), 5 )
+
+tabla5.2_positivos <- as.data.frame(tabla5.2_positivos)
+```
+
+```{r}
+knitr::kable(tabla5.2_positivos, "pipe", align=c("l", "c", "c"))
+```
+
+Reporte de los 5 distritos con menor cantidad de fallecidos
+
+```{r}
+#5 distritos con menor cantidad de fallecidos
+tabla5.2_fallecidos <-  tail( fallecidos_c %>% 
+                        group_by(DISTRITO) %>%
+                        summarise(fallecidos = n()) %>% 
+                        #permite ordenar de forma descendente
+                        arrange(desc(fallecidos)), 5 )
+
+tabla5.2_fallecidos <- as.data.frame(tabla5.2_fallecidos)
+```
+
+```{r}
+knitr::kable(tabla5.2_fallecidos, "pipe", align=c("l", "c", "c"))
+```
+
+**3.7)** Una tabla resumen de la cantidad de los contagios , fallecimiento y vacunados por grupos de edad.
+
+Para esto, creamos la variable grupo de edad, la cual tendrá 4 categorías: grupo 1 (EDAD < 18), grupo 2 (EDAD>=18 & EDAD < 30), grupo 3 (EDAD>=30 & EDAD < 60) y grupo 4 (EDAD>=60)
+
+
+```{r, include=FALSE}
+#Creamos la variable grupo de edad
+positivos_c=mutate(positivos_c,grupo_edad=
+                  case_when(EDAD < 18 ~"Grupo 1",
+                            EDAD>=18 & EDAD < 30 ~"Grupo 2",
+                            EDAD>=30 & EDAD < 60 ~"Grupo 3",
+                            TRUE~"Grupo 4"
+                            ))
+
+fallecidos_c=mutate(fallecidos_c,grupo_edad=
+                  case_when(EDAD_DECLARADA < 18 ~"Grupo 1",
+                            EDAD_DECLARADA>=18 & EDAD_DECLARADA < 30 ~"Grupo 2",
+                            EDAD_DECLARADA>=30 & EDAD_DECLARADA < 60 ~"Grupo 3",
+                            TRUE~"Grupo 4"
+                            ))
+
+vacunados_c=mutate(vacunados_c,grupo_edad=
+                  case_when(EDAD < 18 ~"Grupo 1",
+                            EDAD>=18 & EDAD < 30 ~"Grupo 2",
+                            EDAD>=30 & EDAD < 60 ~"Grupo 3",
+                            TRUE~"Grupo 4"
+                            ))
+
+```
+
+
+```{r, include=FALSE}
+tabla7_positivos <- positivos_c %>% 
+  group_by(grupo_edad) %>%
+  summarise(contagios = n())
+
+tabla7_fallecidos <- fallecidos_c %>% 
+  group_by(grupo_edad) %>%
+  summarise(fallecidos = n())
+
+tabla7_vacunados <- vacunados_c %>% 
+  group_by(grupo_edad) %>%
+  summarise(vacunados = n())
+
+#uniendo 
+tabla7 <- inner_join(tabla7_positivos, tabla7_fallecidos, by="grupo_edad")
+tabla7 <- inner_join(tabla7, tabla7_vacunados, by="grupo_edad")
+
+tabla7 <- as.data.frame(tabla7)
+```
+
+```{r}
+knitr::kable(tabla7, "pipe", align=c("l", "c", "c"))
+```
+
+**3.8)** El porcentaje de casos positivos de hombres y mujeres
+
+```{r}
+prop.table(table(positivos_c$SEXO))
+```
+
+El porcentaje de fallecimientos de hombres y mujeres
+
+```{r}
+prop.table(table(fallecidos_c$SEXO))
+```
+
+En términos de contagios, el covid ha afectado más a las mujeres en Cajamarca. En relación a fallecidos, el covid a afectado más a los hombres en dicha región.
+
+
+**3.10)** Tabla que muestra el grupo de riesgo según las dosis aplicadas y el sexo
+
+```{r, include=TRUE}
+tabla10 <-  as.data.frame( table(vacunados_c$GRUPO_RIESGO, vacunados_c$DOSIS, vacunados_c$SEXO) )
+```
+
+```{r}
+knitr::kable(tabla10, "pipe", col.names =c("GRUPO RIESGO","DOSIS","SEXO","CANTIDAD"), align=c("l", "c", "c"))
+```
+
+
+### **[4.DIAGNÓSTICO](#mark)<a name="id4"></a>**
+
+En Cajamarca, se reportó el primer caso positivo en marzo del 2020. Recién se reportan fallecidos en abril del 2020. Se encuentra que el número de contagios y fallecidos han ido en descenso desde mayo del 2021. El máximo pico de positivos y fallecidos sucedió el abril del 2021. En relación a la vacunación, esta comenzó en febrero de este año y ha ido aumentado progresivamente.
+
+La tasa de contagios y tasa de fallecidos tuvieron su mayor pico en abril del 2020. Estas han comenzado a reducirse progresivamente. En cuanto a la tasa de vacunación, se encuentra que esta ha alcanzado su mayor pico el mes pasado. Por otro lado, la tasa de letalidad se ha mantenido entre el rango de 4% y 10%. Actualmente, este es de 5%.
+
+Estos primeros resultados nos indicarían que el covid en Cajamarca parece estar siendo controlado.
+
+La provincia con mayor cantidad de contagios, fallecidos y vacunados es Cajamarca. Esto mostraría la necesidad de tomar mayor acción en dicha provincia.
+
+Las personas que tienen entre 30 y 59 años son los que reportan mayor cantidad de contagios y mayor cantidad de vacunados. Sin embargo, el grupo con mayor cantidad de muertes son los mayores de 60 años. Es así que es necesario la tercera vacunación para dicho grupo de edad.
+
+Hay mayor porcentaje de hombres fallecidos que mujeres, lo cual podría dar indicios de que se necesita un mayor cuidado en los hombres contagiados.
+
+Se observa también que ya está colocando la tercera dosis para los grupos vulnerables. Sin embargo, aún falta completar la cobertura.
+
+

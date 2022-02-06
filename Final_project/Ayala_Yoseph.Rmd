@@ -1,0 +1,507 @@
+---
+title: "Trabajo Final"
+author: "Yoseph Ayala"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    highlight: kate
+---
+
+#### Diplomatura de Diplomatura de Especialización en Ciencia de Datos para las Ciencias Sociales y la Gestión Pública 2021-01<br> 
+
+
+```{r setup, include=FALSE}
+## Global options
+knitr::opts_chunk$set(cache = TRUE)
+```
+
+```{r echo=FALSE, warning=FALSE, results='hide'}
+rm(list=ls())
+```
+
+```{r echo=FALSE, warning=FALSE, results='hide'}
+#Seteamos la ruta de trabajo
+setwd("C:/Diplomado QLAB/R_basico/Trabajo_final")
+```
+
+**<span style="color:black">ÍNDICE</span>**
+
+1. [Planteamiento del problema e hipótesis](#id1)
+2. [Selección de bases de datos](#id2)
+3. [Análisis](#id3)
+4. [Bibliografía](#id4)
+
+
+
+```{r echo=FALSE, warning=FALSE, results='hide'}
+library(rmdformats)
+library(rio) 
+library(dplyr) 
+library(ggplot2)
+library(ggeasy)
+```
+
+
+### **[1. Planteamiento del problema e hipótesis](#mark)<a name="id1"></a>**
+
+</div>
+**Problema de investigación:** El temor al crimen en las áreas urbanas del Perú
+
+**Pregunta de investigación:** ¿Cómo ha evolucionado el temor al crimen en las áreas urbanas del Perú durante los últimos años?
+
+**Hipótesis General:** El temor el crimen se ha mantenido casi constante durante los últimos años.
+
+**Hipótesis específica 1:** El temor al crimen se da forma diferencia por sexo.
+
+**Hipótesis específica 2:** El temor al crimen se da forma diferencia entre las regiones naturales (Costa, Sierra y Selva).
+
+
+### **[2. Selección de bases de datos](#mark)<a name="id2"></a>**
+
+Se emplerá la Encuesta Nacional de Programas Presupuestales (ENAPRES) del INEI. El capítulo de interés de esta encuesta para la presente investigación es el denominado “Seguridad Ciudadana”. Este capítulo contiene preguntas dirigidas exclusivamente a las personas que viven en el área urbana y que tienen de 14 años a más de edad. Se emplerán las bases de datos para los años del 2017 al 2020.
+
+```{r echo=FALSE, warning=FALSE, results='hide'}
+#importamos las bases de datos (enapres_2017, enapres_2018, enapres_2019, enapres_2020)
+
+for (i in 2017:2020){
+        
+        assign( paste0("enapres_",i),
+                import(paste0("CAP600_ENAPRES_",i,".sav") ) )
+        
+}
+```
+
+```{r echo=FALSE, warning=FALSE, results='hide'}
+datasets <- c("enapres_2017", "enapres_2018", "enapres_2019", "enapres_2020")
+```
+
+```{r echo=FALSE, warning=FALSE}
+
+#Nos quedamos con nuestras variables de interés
+
+myvars <- c("P611A",  #Emotional component
+            "P621A_1", "P621A_2", "P621A_3", "P621A_4", "P621A_5", "P621A_6",  #Behavioral component
+            "P611_1", "P611_2", "P611_3", "P611_4", "P611_5", "P611_6", "P611_7", "P611_8", "P611_9", #Cognitive component
+            "P611_10", "P611_11", "P611_12", "P611_13",
+            
+            "P207", "ANIO", "REGIONNATU" #Características
+            )
+
+
+#Las nuevas bases serán estas: enapres_2017_, enapres_2018_, enapres_2019_, enapres_2020_
+
+for (i in datasets){
+        
+        base <- get(i)
+        base <- base[, myvars]
+        
+        assign( paste0(i,"_"),
+                base )
+}
+
+```
+
+```{r echo=FALSE, warning=FALSE}
+#Arreglamos la variable REGIONNATU para la base del 2018
+enapres_2018_$REGIONNATU <- as.character( factor(enapres_2018_$REGIONNATU, labels = c("1", "2", "3")) )
+
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+#unimos las tres bases para tener un pool de datos (2017-2020)
+
+constructed_data <- bind_rows(enapres_2017_, enapres_2018_, enapres_2019_, enapres_2020_)
+
+```
+
+### **[3. Análisis](#mark)<a name="id3"></a>**
+
+Para evaluar el temor al crimen, siguiendo a , se estudiarán tres componentes de este: el emocional, el de comportamiento y el cognitivo. 
+Por tanto nuestro análisis será dividido en tres bloques. Clément y Piaser (2021)
+
+
+**3.1 COMPONENTE EMOCIONAL**
+
+Para evaluar este componente, se utilizará la siguiente pregunta del ENAPRES:
+
+"Cuando usted camina de noche en su zona o barrio, ¿se siente...?"
+
+La variable toma 4 valores:
+
+1- Muy inseguro
+2- Inseguro
+3- Seguro
+4- Muy seguro
+
+Transformamos dicha variable para que sea una dicotómica.
+
+```{r echo=FALSE, warning=FALSE}
+#Creamos una nueva variable que esté compuesta por solo 2 categorías
+
+constructed_data <- mutate(constructed_data, emotionalc=
+                    case_when( P611A == 1 | P611A == 2   ~ "Inseguridad",
+                            P611A == 3 | P611A == 4 ~ "Seguridad"
+                             ))
+
+constructed_data$emotionalc <- as.factor(constructed_data$emotionalc)
+```
+
+```{r echo=FALSE, warning=FALSE}
+#Eliminamos los NA de la variable P611A
+emotionalc_data<- constructed_data[!is.na(constructed_data$emotionalc),]
+```
+
+**Tabla 1**
+
+Se reporta el porcentaje de personas que siente inseguridad al caminar de noche según año. Según se observa, alrededor de la mitad de los encuestados, sienten inseguridad al caminar de noche para los distintos años.
+
+```{r echo=FALSE, warning=FALSE, results='hide'}
+tabla1 <- emotionalc_data %>% 
+  group_by(ANIO, emotionalc) %>%
+  summarise(total = n()) %>%
+  mutate(porc = round( (total / sum(total))*100, 2) )  #Count number of rows by group
+
+colnames(tabla1) <- c("Año", "Inseguridad noche", "Total", "Porc")
+```
+
+```{r echo=FALSE}
+knitr::kable(tabla1, "pipe", align=c("l", "c", "c"))
+```
+
+**Gráfico 1**
+
+Se observa poca variación en los años. Esto indicaría que en realidad la inseguridad en cuanto a caminar de noche sigue siendo la misma año tras año.
+
+```{r echo=FALSE}
+ggplot(emotionalc_data, aes(x=ANIO,fill=emotionalc))+
+  geom_bar(position="fill")+ #fill para porcentaje
+  xlab("Año") + ylab("Porcentaje")  +
+  labs(fill="",
+       caption = "Fuente: ENAPRES 2017-2020") +
+  ggtitle("Porcentaje de personas que sienten inseguridad al caminar de noche por año") +
+  ggeasy::easy_center_title() + #centrar título
+  coord_flip() +
+ # theme(legend.position='top')+
+  scale_y_continuous(labels = scales::percent_format()) # Draw ggplot2 plot scaled to 100%
+```
+
+**Tabla 2**
+
+Se reporta el porcentaje de personas que siente inseguridad al caminar de noche según región natural y sexo.
+
+```{r echo=FALSE, warning=FALSE, results='hide'}
+tabla2 <- emotionalc_data %>% 
+  group_by(factor(REGIONNATU,labels = c("Costa", "Sierra", "Selva")), factor(P207,levels = c(1,2),labels = c("Hombre", "Mujer")), emotionalc) %>%
+  summarise(total = n()) %>%
+  mutate(porc = round( (total / sum(total))*100, 2) )  #Count number of rows by group
+
+colnames(tabla2) <- c("Región natural", "Sexo", "Inseguridad noche", "Total", "Porc")
+
+```
+
+
+```{r echo=FALSE}
+knitr::kable(tabla2, "pipe", align=c("l", "c", "c"))
+```
+
+**Gráfico 2**
+
+Se observa que las mujeres presentan mayor inseguridad que los hombres en todas las regiones naturales. Además, en la costa, se observa mayor inseguridad tanto en hombres como mujeres en relación a las otras regiones.
+
+```{r echo=FALSE, warning=FALSE}
+ggplot( emotionalc_data, aes(x=factor(REGIONNATU,labels = c("Costa", "Sierra", "Selva")),fill=emotionalc))+
+  geom_bar(position="fill")+ #fill para porcentaje
+  xlab("Sexo") + ylab("Porcentaje")  +
+  labs(fill="",
+       caption = "Fuente: ENAPRES 2017-2020") +
+  ggtitle("Porcentaje de personas que sienten inseguridad al caminar de noche por sexo y región natural") +
+  ggeasy::easy_center_title() + #centrar título
+  coord_flip() +
+  facet_wrap(~factor(P207,levels = c(1,2),labels = c("Hombre", "Mujer"))) +
+ # theme(legend.position='top')+
+  scale_y_continuous(labels = scales::percent_format()) # Draw ggplot2 plot scaled to 100%
+```
+
+
+**3.2 COMPONENTE DE COMPORTAMIENTO**
+
+Para evaluar este componente, se utilizarán las siguientes preguntas del ENAPRES:
+
+"Usted ¿ha dejado o evita [determinada acción]*, por temor a ser víctima de la delincuencia?"
+
+Las variables tienen 3 valores:
+
+1- sí
+2- no
+3- no sabe
+
+Creamos una variable llamada "Inseguridad" que tome el valor de 1 si es que la persona, al menos, ha dejado o evitado de realizar determinada acción.
+
+*Son en total 6 acciones: salir de noche, salir a caminar, contestar el celular en la calle, llegar muy tarde a casa, tomar taxi en la calle y llevar mucho dinero en efectivo.
+
+```{r echo=FALSE, warning=FALSE}
+behaviorc_data <- constructed_data[, c("P621A_1", "P621A_2", "P621A_3", "P621A_4", "P621A_5", "P621A_6", "P207", "REGIONNATU", "ANIO")]
+
+```
+
+```{r echo=FALSE, warning=FALSE}
+#Creamos una variable que tengan el valor de 1 si es que la persona al menos ha dejado o evitado alguna de esas actividades por inseguridad.
+# 0 si es que no ha dejado o evitado algo de la mencionado
+
+behaviorc_data  <- mutate(behaviorc_data, behaviorc =
+                               case_when( P621A_1 == 1 | P621A_2 == 1 | P621A_3 == 1 | P621A_4 == 1 | P621A_5 == 1 |
+                                          P621A_6 == 1  ~ 1,
+                                          
+                                          P621A_1 == 2 | P621A_2 == 2 | P621A_3 == 2 | P621A_4 == 2 | P621A_5 == 2 |
+                                          P621A_6 == 2  ~ 0
+                               ))
+```
+
+```{r echo=FALSE, warning=FALSE}
+#Eliminamos los NA de la variable behaviorc
+behaviorc_data<- behaviorc_data[!is.na(behaviorc_data$behaviorc),]
+```
+
+
+```{r echo=FALSE, warning=FALSE, results='hide'}
+tabla3 <- behaviorc_data %>% 
+  group_by(ANIO, factor(behaviorc,levels = c(0,1), labels = c("No", "Sí") )) %>%
+  summarise(total = n()) %>%
+  mutate(porc = round( (total / sum(total))*100, 2) )  #Count number of rows by group
+
+colnames(tabla3) <- c("Año", "Inseguridad", "Total", "Porc")
+
+```
+
+**Tabla 3**
+
+Se presenta una tabla con el porcentaje de personas que al menos al dicho que sí han dejado de realizar alguna de las acciones por miedo a la delincuencia según año. En el 2017, se observa el mayor porcentaje (52.52%)
+
+```{r echo=FALSE}
+knitr::kable(tabla3, "pipe", align=c("l", "c", "c"))
+```
+
+**Gráfico 3**
+
+Se observa que los porcentajes no han variado mucho durante los años.
+
+```{r echo=FALSE}
+  ggplot(tabla3, aes(x=" ", y=Porc, group=Inseguridad, colour=Inseguridad, fill=Inseguridad)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar(theta="y", start=0) +
+  labs(
+  caption = "Fuente: ENAPRES 2017-2020") +
+  facet_wrap(~Año, ncol=2) + #permite hacer la división por provincias
+  ggtitle("Porcentaje de personas que han dejado de hacer alguna actividad por años") +
+  geom_text(aes(x = 1, label = paste(round(Porc,1),"%")), position = position_stack(vjust = .5),color = "black",   size=2.8) + #texto
+  theme_void()
+```
+
+**Tabla 4**
+
+Se presenta una tabla con el porcentaje de personas que han dejado de realizar alguna actividad por temor a la delincuencia según región natural y sexo.
+
+```{r echo=FALSE, warning=FALSE, results='hide'}
+tabla4 <- behaviorc_data %>% 
+  group_by(factor(REGIONNATU,labels = c("Costa", "Sierra", "Selva")), factor(P207,levels = c(1,2),labels = c("Hombre", "Mujer")), behaviorc) %>%
+  summarise(total = n()) %>%
+  mutate(porc = round( (total / sum(total))*100, 2) )  #Count number of rows by group
+
+colnames(tabla4) <- c("Región", "Sexo", "Inseguridad", "Total", "Porc")
+
+tabla4$Inseguridad <- factor(tabla4$Inseguridad, levels=c(0,1), labels=c("No", "Sí"))
+
+```
+
+```{r echo=FALSE}
+knitr::kable(tabla4, "pipe", align=c("l", "c", "c"))
+```
+
+**Gráfico 4**
+
+Se observa que las mujeres en la costa son las que presentan el porcentaje más alto de dejar de realizar alguna actividad por temor a la delincuencia (60.8%). 
+
+```{r echo=FALSE}
+  ggplot(tabla4, aes(x=" ", y=Porc, group= Inseguridad, colour=Inseguridad, fill=Inseguridad)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar(theta="y", start=0) +
+  labs(
+  caption = "Fuente: ENAPRES 2017-2020") +
+  facet_wrap(~Región + Sexo, ncol=2) + #permite hacer la división por provincias
+  ggtitle("Porcentaje de personas que han dejado de hacer alguna actividad") +
+  geom_text(aes(x = 1, label = paste(round(Porc,1),"%")), position = position_stack(vjust = .5),color = "black",   size=2.8) + #texto
+  theme_void()
+```
+
+**3.3 COMPONENTE COGNITIVO**
+
+Para evaluar este componente, se utilizarán la siguientes preguntas del ENAPRES:
+
+"En los próximos 12 meses, ¿Usted cree que puede ser víctima de [determinado hecho delictivo]*?
+
+La variable toma 3 valores:
+
+1- Sí
+2- No
+3- No tiene
+
+Lo que realizaremos es un índice de percepción de inseguridad per cápita. La fórmula empleada para la elaboración del índice de percepción de inseguridad per cápita es el siguiente:
+
+$$(1/N)\sum_{n=0}^{13} i*N_i$$
+
+donde:
+
+$N_i$ es la cantidad de individuos que ha sido víctimas de “$i$” delitos 
+$N$ es el número total de individuos
+
+
+*Se consideran 13 hechos delictivos: robo de vivienda, robo de vehículo automotor, robo de autopartes del vehículo automotor, robo de motocicleta/mototaxi, robo de bicicleta, robo de dinero/cartera/celular, amenazas/intimidaciones, maltrato físico/psicológico en el hogar, ofensas sexuales, secuestro, extorsión, estafa y robo de negocio.
+
+
+```{r echo=FALSE, warning=FALSE}
+cognitivec_data <- constructed_data[, c("P611_1", "P611_2", "P611_3", "P611_4", "P611_5", "P611_6", "P611_7", "P611_8", "P611_9",
+                                     "P611_10", "P611_11", "P611_12", "P611_13", "P207", "REGIONNATU", "ANIO")]
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+#Eliminamos las observaciones que contengan NA en todas las variables de percepción de inseguridad
+
+cognitivec_data  <- cognitivec_data [!is.na(cognitivec_data $P611_1) & !is.na(cognitivec_data $P611_2) & !is.na(cognitivec_data $P611_3) & 
+                                    !is.na(cognitivec_data $P611_4) & !is.na(cognitivec_data $P611_5) & !is.na(cognitivec_data $P611_6) & 
+                                    !is.na(cognitivec_data $P611_7) & !is.na(cognitivec_data $P611_8) & !is.na(cognitivec_data $P611_9) &
+                                    !is.na(cognitivec_data$P611_10) & !is.na(cognitivec_data $P611_11) & !is.na(cognitivec_data $P611_12) & 
+                                    !is.na(cognitivec_data $P611_13),]
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+#Creamos una variable que tenga el valor de 1 si es que la persona siente percepción de inseguridad ciudadana por un item
+# y 0 si es que no lo siente
+
+cognitivec_data  <- cognitivec_data %>% 
+        mutate_at(vars(P611_1, P611_2, P611_3, P611_4, P611_5, P611_6, P611_7, P611_8, P611_9, P611_10,
+                       P611_11, P611_12, P611_13), recode,'1'='1', '2'='0', '3'='0') 
+
+
+```
+
+```{r echo=FALSE, warning=FALSE}
+#Creamos una variable que sume los trece items anteriores. La suma estaría entre 0 y 13
+
+var_inseguridad <- c("P611_1", "P611_2", "P611_3", "P611_4", "P611_5", "P611_6", "P611_7", "P611_8", "P611_9",
+              "P611_10", "P611_11", "P611_12", "P611_13")
+
+
+cognitivec_data[var_inseguridad] <- sapply(cognitivec_data[var_inseguridad], as.numeric)
+
+cognitivec_data$suma <- cognitivec_data$P611_1 + cognitivec_data$P611_2 + cognitivec_data$P611_3 + cognitivec_data$P611_4 + cognitivec_data$P611_5    +cognitivec_data$P611_6 + cognitivec_data$P611_7 + cognitivec_data$P611_8 + cognitivec_data$P611_9 + cognitivec_data$P611_10 + cognitivec_data$P611_11 +cognitivec_data$P611_12 + cognitivec_data$P611_13
+
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+years <- c("2017", "2018", "2019", "2020")
+
+for (i in years){
+       
+         
+        data <- subset(cognitivec_data,ANIO== i)
+        indice <- as.data.frame(table(data$suma))
+        
+        colnames(indice) <- c("suma", "Freq")
+        indice$x <- (as.numeric(indice$suma)-1) * indice$Freq  
+        
+        i_per_capita<- sum(indice$x)/sum(indice$Freq)
+        
+        assign( paste0("indice_per_capita", i),
+                i_per_capita )
+ 
+        #los indices se llamarán indice_per_capita_year
+        
+}
+```
+
+**Gráfico 5**
+
+Se observa que el índice de percepción de inseguridad per cápita, si bien no ha variado mucho, presenta su menor valor para el 2020. En específico para dicho año, en promedio, una personas ha reportado que percibe que puede ser víctima de 3.12 hechos delictivos durante los 12 próximos meses.
+
+```{r echo=FALSE, warning=FALSE}
+#indice per capita
+indice_nac<- data.frame(c(2017, 2018, 2019, 2020) , c(indice_per_capita2017, indice_per_capita2018, indice_per_capita2019, indice_per_capita2020))
+colnames(indice_nac) <- c("año", "índice")
+
+grafico_indice_nac <- ggplot(indice_nac, aes(y=índice, x=año)) + 
+        geom_bar(position="dodge", stat="identity", width = 0.40) +
+        geom_text(aes(label=round(índice,2)), position=position_dodge(width=0.9), vjust=-0.25) +
+        labs(title = "Evolución del índice de percepción de inseguridad per cápita",
+  caption = "Fuente: ENAPRES 2017-2020") +
+        scale_fill_grey() +
+        xlab("") + ylab("Índice") 
+
+grafico_indice_nac 
+```
+
+```{r echo=FALSE, warning=FALSE}
+years <- c("2017", "2018", "2019", "2020")
+sex <- c(1, 2)
+
+for (i in years){
+        
+        base <- subset(cognitivec_data,ANIO== i)
+        
+        for (j in sex){
+                
+        data <- subset(base,P207== j)
+        
+        indice <- as.data.frame(table(data$suma))
+        
+        colnames(indice) <- c("suma", "Freq")
+        indice$x <- (as.numeric(indice$suma)-1) * indice$Freq  
+        
+        i_per_capita<- sum(indice$x)/sum(indice$Freq)
+        
+        assign( paste0("indice_",i,"_","sex",j),
+                i_per_capita )
+        }
+        #los indices se llamarán indice_year_sex
+        
+}
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+#indice per capita
+
+datasets <- c(indice_2017_sex1, indice_2017_sex2, indice_2018_sex1, indice_2018_sex2, indice_2019_sex1, indice_2019_sex2, indice_2020_sex1, indice_2020_sex2 ) 
+sex <- c( "Hombre", "Mujer", "Hombre", "Mujer", "Hombre", "Mujer", "Hombre", "Mujer" )
+years <- c( 2017, 2017, 2018, 2018, 2019, 2019, 2020, 2020 )
+
+
+indice_sex<- data.frame(years , sex, datasets)
+colnames(indice_sex) <- c("Year", "Sex", "Index")
+
+```
+
+**Gráfico 6**
+
+Se observa que los hombres perciben mayor percepción de inseguridad que las mujeres para todos los años.
+
+```{r echo=FALSE, warning=FALSE}
+#indice per capita por sexo
+grafico_indice_sex <- ggplot(indice_sex, aes(y=Index, x=Year, fill=Sex)) + 
+        geom_bar(position="dodge", stat="identity", width = 0.40) +
+        geom_text(aes(label=round(Index,2)), position=position_dodge(width=0.9), vjust=-0.25) +
+        xlab("Año") + ylab("Índice") +
+        labs(title = "Evolución del índice de percepción de inseguridad per cápita según sexo",
+             fill = "Sexo",
+  caption = "Fuente: ENAPRES 2017-2020") 
+
+grafico_indice_sex 
+```
+
+
+### **[4. Bibliografía](#mark)<a name="id4"></a>**
+
+Clément, M., & Piaser, L. (2021). Do inequalities predict fear of crime? Empirical evidence from Mexico. World Development, 140, 105354.

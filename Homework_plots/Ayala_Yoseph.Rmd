@@ -1,0 +1,448 @@
+---
+title: "Lista 2"
+author: "Yoseph Ayala"
+date: "11/5/2021"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##### Diplomatura de Diplomatura de Especialización en Ciencia de Datos para las Ciencias Sociales y la Gestión Pública 2021-01<br> 
+
+##### Curso: Fundamentos de R para CCSS y Gestión Pública<br> 
+
+____
+
+**<span style="color:blue">ÍNDICE</span>**
+
+1. [Importación de datos](#id1)
+2. [Selección de región](#id2)
+3. [Reporte descriptivo](#id3)
+
+```{r, echo=FALSE}
+rm(list=ls())
+```
+
+
+Seteamos la ruta de trabajo
+```{r}
+setwd("C:/Diplomado QLAB/R_basico/Lista 2")
+```
+
+### **[1. IMPORTACIÓN DE DATOS](#mark)<a name="id1"></a>**
+
+```{r, warning=FALSE}
+library(rio)
+```
+
+Importamos las bases de datos a utilizar
+
+```{r}
+positivos<- import("positivos_covid-14.csv")
+fallecidos<- import("fallecidos_covid-14.csv")
+vacunados<- import("vacunas_covid.csv")
+
+```
+
+Realizamos un tratamiento previo a las fechas
+
+```{r, warning=FALSE}
+library(lubridate)
+```
+
+```{r}
+positivos$FECHA_RESULTADO=as.character(positivos$FECHA_RESULTADO)
+positivos$fecha=as.Date(positivos$FECHA_RESULTADO,"%Y%m%d")
+positivos$añomes<- as.factor(format(positivos$fecha,'%Y-%m')) 
+```
+
+```{r}
+fallecidos$FECHA_FALLECIMIENTO=as.character(fallecidos$FECHA_FALLECIMIENTO)
+fallecidos$fecha=as.Date(fallecidos$FECHA_FALLECIMIENTO,"%Y%m%d")
+fallecidos$añomes<- as.factor(format(fallecidos$fecha,'%Y-%m')) 
+```
+
+```{r}
+vacunados$FECHA_VACUNACION=as.character(vacunados$FECHA_VACUNACION)
+vacunados$fecha=as.Date(vacunados$FECHA_VACUNACION,"%Y%m%d")
+vacunados$añomes<- as.factor(format(vacunados$fecha,'%Y-%m')) 
+```
+
+### **[2. SELECCIÓN DE REGIÓN](#mark)<a name="id2"></a>**
+
+```{r, warning=FALSE}
+library(dplyr) 
+```
+
+Nos quedamos solo con la región de Cajamarca.
+
+```{r}
+positivos_c=filter(positivos,DEPARTAMENTO=="CAJAMARCA")
+fallecidos_c=filter(fallecidos,DEPARTAMENTO=="CAJAMARCA")
+vacunados_c=filter(vacunados,DEPARTAMENTO=="CAJAMARCA")
+```
+
+### **[3.REPORTE DESCRIPTIVO](#mark)<a name="id3"></a>**
+
+**3.1)**
+Primero, generamos los datos requeridos. Creamos tablas resúmenes de la cantidad de casos positivos nuevos por meses, el número de fallecidos por meses y la vacunación por meses.
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+tabla1_positivos <- positivos_c %>% 
+  group_by(añomes) %>%
+  summarise(positivos = n()) #Count number of rows by group
+tabla1_positivos <- as.data.frame(tabla1_positivos)
+
+#Eliminamos los NA, los que no tiene registro en la fecha
+tabla1_positivos <- tabla1_positivos[complete.cases(tabla1_positivos ), ]
+```
+
+```{r}
+tabla1_fallecidos <- fallecidos_c %>% 
+  group_by(añomes) %>%
+  summarise(fallecidos = n()) #Count number of rows by group
+tabla1_fallecidos <- as.data.frame(tabla1_fallecidos)
+```
+
+```{r}
+tabla1_vacunados <- vacunados_c %>% 
+  group_by(añomes) %>%
+  summarise(vacunados = n()) #Count number of rows by group
+tabla1_vacunados <- as.data.frame(tabla1_vacunados)
+```
+
+
+```{r, warning=FALSE}
+#install.packages("ggeasy")
+library("ggeasy")
+```
+
+Gráfico de barras que contiene la cantidad de casos positivos nuevos por meses
+
+```{r}
+ggplot(tabla1_positivos, aes(x= añomes, y=positivos)) + 
+  geom_bar(colour = "black", fill = "#DD8888", width = .8, stat = "identity") +
+  xlab("Mes") + ylab("Cantidad de casos positivos nuevos")  +
+  ggtitle("Número de nuevos casos Covid-19 en CAJAMARCA") +
+  ggeasy::easy_center_title() + #centrar título
+  theme(axis.text.x = element_text(angle = 90)) #rotar el label del eje x 
+```
+
+Gráfico de barras que contiene la cantidad de fallecidos por meses
+
+```{r}
+ggplot(tabla1_fallecidos, aes(x= añomes, y=fallecidos)) + 
+  geom_bar(colour = "black", fill = "deepskyblue3", width = .8, stat = "identity") +
+  xlab("Mes") + ylab("Cantidad de fallecidos")  +
+  ggtitle("Número de fallecidos Covid-19 en CAJAMARCA") +
+  ggeasy::easy_center_title() + #centrar título
+  theme(axis.text.x = element_text(angle = 90)) #rotar el label del eje x 
+```
+
+Gráfico de barras que contiene la cantidad de dosis aplicadas por meses
+
+```{r}
+ggplot(tabla1_vacunados, aes(x= añomes, y=vacunados)) + 
+  geom_bar(colour = "black", fill = "darkseagreen", width = .8, stat = "identity") +
+  xlab("Mes") + ylab("Cantidad de dosis aplicadas")  +
+  ggtitle("Número de dosis aplicadas para el Covid-19 en CAJAMARCA") +
+  ggeasy::easy_center_title() + #centrar título
+  theme(axis.text.x = element_text(angle = 90)) + #rotar el label del eje x 
+  scale_y_continuous(labels = scales::comma) #para que los números no estén en notación científica en el axis y
+```
+
+
+**3.2)**
+
+Hallamos la tasa por 100 mil habitantes siguiendo la fórmula del Observatorio de la Violencia. Para ello, utilizamos la población proyectada para el 2021 en la región de Cajamarca, el cual es de 1455200 habitantes.
+
+```{r}
+pob <- 1455200
+
+tabla2_positivos <- tabla1_positivos
+tabla2_positivos$tasa <-  (tabla2_positivos$positivos/pob)*100000
+tabla2_positivos <- as.data.frame(tabla2_positivos)
+```
+
+```{r}
+tabla2_fallecidos <- tabla1_fallecidos
+tabla2_fallecidos$tasa <-  (tabla2_fallecidos$fallecidos/pob)*100000
+tabla2_fallecidos <- as.data.frame(tabla2_fallecidos )
+```
+
+```{r}
+tabla2_vacunados <- tabla1_vacunados
+tabla2_vacunados$tasa <-  (tabla2_vacunados$vacunados/pob)*100000
+tabla2_vacunados <- as.data.frame(tabla2_vacunados)  
+```
+
+Gráfico de barras con la tasa de contagios por mes
+
+```{r}
+ggplot(tabla2_positivos, aes(x= añomes, y=tasa)) + 
+  geom_bar(colour = "black", fill = "#DD8888", width = .8, stat = "identity") +
+  xlab("Mes") + ylab("Tasa")  +
+  ggtitle("Tasa de contagios por mes en CAJAMARCA") +
+  ggeasy::easy_center_title() + #centrar título
+  theme(axis.text.x = element_text(angle = 90)) + #rotar el label del eje x 
+  scale_y_continuous(labels = scales::comma) #para que los números no estén en notación científica en el axis y
+```
+
+Gráfico de barras con la tasa de fallecidos por mes
+
+```{r}
+ggplot(tabla2_fallecidos, aes(x= añomes, y=tasa)) + 
+  geom_bar(colour = "black", fill = "deepskyblue3", width = .8, stat = "identity") +
+  xlab("Mes") + ylab("Tasa")  +
+  ggtitle("Tasa de fallecidos por Covid-19 por mes en CAJAMARCA") +
+  ggeasy::easy_center_title() + #centrar título
+  theme(axis.text.x = element_text(angle = 90)) + #rotar el label del eje x 
+  scale_y_continuous(labels = scales::comma) #para que los números no estén en notación científica en el axis y
+```
+
+Gráfico de barras con la tasa de vacunación por mes
+
+```{r}
+ggplot(tabla2_vacunados, aes(x= añomes, y=tasa)) + 
+  geom_bar(colour = "black",  fill = "darkseagreen",width = .8, stat = "identity") +
+  xlab("Mes") + ylab("Tasa")  +
+  ggtitle("Tasa de vacunados por mes en CAJAMARCA") +
+  ggeasy::easy_center_title() + #centrar título
+  theme(axis.text.x = element_text(angle = 90)) + #rotar el label del eje x 
+  scale_y_continuous(labels = scales::comma) #para que los números no estén en notación científica en el axis y
+```
+
+**3.3)**
+
+Primero, creamos nuestra variable por quintiles de edad.
+
+```{r}
+#Creamos la variable grupo de edad
+positivos_c=mutate(positivos_c,grupo_edad=
+                  case_when( EDAD < 5 ~ "0 a 4 años",
+                            5>=EDAD & EDAD<10 ~"5 a 9 años",
+                            10>=EDAD & EDAD<15 ~"10 a 14 años",
+                            15>=EDAD & EDAD<20 ~"15 a 19 años",
+                            20>=EDAD & EDAD<25 ~"20 a 24 años",
+                            25>=EDAD & EDAD<30 ~"25 a 29 años",
+                            30>=EDAD & EDAD<35 ~"30 a 34 años",
+                            35>=EDAD & EDAD<40 ~"35 a 39 años",
+                            40>=EDAD & EDAD<45 ~"40 a 44 años",
+                            45>=EDAD & EDAD<50 ~"45 a 49 años",
+                            50>=EDAD & EDAD<55 ~"50 a 54 años",
+                            55>=EDAD & EDAD<60 ~"55 a 59 años",
+                            60>=EDAD & EDAD<65 ~"60 a 64 años",
+                            65>=EDAD & EDAD<70 ~"65 a 69 años",
+                            70>=EDAD & EDAD<75 ~"70 a 74 años",
+                            75>=EDAD & EDAD<80 ~"75 a 79 años",
+                            80>=EDAD & EDAD<85 ~"80 a 84 años",
+                            85>=EDAD & EDAD<90 ~"85 a 89 años",
+                            90>=EDAD & EDAD<95 ~"90 a 94 años",
+                            95>=EDAD & EDAD<100 ~"95 a 99 años",
+                            TRUE~ "más de 100"
+                            ))
+
+```
+
+Gráfico de barras horizontales que contiene el porcentaje de contagios por grupo de edad y sexo
+
+```{r}
+ggplot(positivos_c, aes(x=grupo_edad,fill=SEXO))+
+  geom_bar(position="fill")+ #fill para porcentaje
+  xlab("Quinquenios de edad") + ylab("Porcentaje de Casos Covid-19 por sexo")  +
+  labs(fill="Sexo") +
+  ggtitle("Población Covid-19 en Cajamarca por grupos de edad") +
+  ggeasy::easy_center_title() + #centrar título
+  coord_flip() +
+ # theme(legend.position='top')+
+  scale_y_continuous(labels = scales::percent_format()) # Draw ggplot2 plot scaled to 100%
+ 
+```
+
+
+**3.4)**
+
+Gráfico de barras horizontales con la cantidad de contagios por provincias
+
+```{r}
+positivos_c %>% 
+  group_by(PROVINCIA) %>%
+  summarise(contagios = n()) %>%
+  
+ggplot(aes(x=reorder(PROVINCIA, contagios),y= contagios) )+
+  geom_bar(colour = "black",  fill = "#DD8888", width = .8, stat="identity")+ #fill para porcentaje
+  geom_text(aes(label= round(contagios)),hjust = -0.5, size = 3.2,
+                          position = position_dodge(width = 1),
+                          inherit.aes = TRUE) +
+  xlab("Provincias") + ylab("Cantidad de contagios")  +
+  ggtitle("Cantidad de contagios por provincias en Cajamarca") +
+  ggeasy::easy_center_title() + #centrar título
+  coord_flip()  #gráfico horizontal
+
+```
+
+Gráfico de barras horizontales con la cantidad de fallecidos por provincias
+
+```{r}
+fallecidos_c %>% 
+  group_by(PROVINCIA) %>%
+  summarise(fallecidos = n()) %>%
+
+ggplot(aes(x=reorder(PROVINCIA, fallecidos),y= fallecidos) )+
+  geom_bar(colour = "black",  fill = "deepskyblue3", width = .8, stat="identity")+ #fill para porcentaje
+  geom_text(aes(label= round(fallecidos)),hjust = -0.5, size = 3.2,
+                          position = position_dodge(width = 1),
+                          inherit.aes = TRUE) +
+  xlab("Provincias") + ylab("Cantidad de fallecidos")  +
+  ggtitle("Cantidad de fallecidos por provincias en Cajamarca") +
+  ggeasy::easy_center_title() + #centrar título
+  coord_flip()  #gráfico horizontal
+
+```
+
+Gráfico de barras horizontales con la cantidad de vacunados por provincias
+
+```{r}
+vacunados_c %>% 
+  group_by(PROVINCIA) %>%
+  summarise(vacunados = n()) %>%
+
+ggplot(aes(x=reorder(PROVINCIA, vacunados),y= vacunados) )+
+  geom_bar(colour = "black",  fill = "darkseagreen", width = .8, stat="identity")+ #fill para porcentaje
+  geom_text(aes(label= scales::comma(vacunados)),hjust = -0.5, size = 3.2, #coma para los labels
+                          position = position_dodge(width = 1),
+                          inherit.aes = TRUE) +
+  xlab("Provincias") + ylab("Cantidad de vacunados")  +
+  ggtitle("Cantidad de vacunados por provincias en Cajamarca") +
+  ggeasy::easy_center_title() + #centrar título
+  coord_flip() + #gráfico horizontal
+  scale_y_continuous(labels = scales::comma) 
+```
+
+**3.5)**
+
+Gráfico pie con el porcentaje de fallecimientos de hombres y mujeres
+
+```{r}
+fallecidos_c %>% 
+  group_by(SEXO) %>% 
+  summarise(conteo = n()) %>%
+  mutate(prop = conteo / sum(conteo)*100) %>%
+  ggplot() +
+  aes(x = " ", y = prop, fill = SEXO) +
+  geom_bar(stat = "identity",width = 1,color="white")+coord_polar("y", start=0)+
+  ggtitle("Porcentaje de fallecidos por sexo en Cajamarca") +
+  ggeasy::easy_center_title() + #centrar título
+  geom_text(aes(x = 1, label = paste(round(prop,2),"%")), position = position_stack(vjust = .5),color = "white",   size=4.5) + #texto 
+  theme_void() 
+
+```
+
+Gráfico pie con el porcentaje de contagios de hombres y mujeres
+
+```{r}
+positivos_c %>% 
+  group_by(SEXO) %>% 
+  summarise(conteo = n()) %>%
+  mutate(prop = conteo / sum(conteo)*100) %>%
+  ggplot() +
+  aes(x = " ", y = prop, fill = SEXO) +
+  geom_bar(stat = "identity",width = 1,color="white")+coord_polar("y", start=0)+
+  ggtitle("Porcentaje de contagios por sexo en Cajamarca") +
+  ggeasy::easy_center_title() + #centrar título
+  geom_text(aes(x = 1, label = paste(round(prop,2),"%")), position = position_stack(vjust = .5),color = "white",   size=4.5) + #texto
+  theme_void() 
+
+```
+
+**3.6)**
+
+Gráfico pie con el porcentaje de fallecimientos de hombres y mujeres por provincia
+
+```{r}
+fallecidos_c %>% 
+  group_by(PROVINCIA, SEXO) %>%
+  summarise(conteo= n())%>%
+  mutate(prop = conteo / sum(conteo)*100) %>%
+
+  ggplot( aes(x=" ", y=prop, group=SEXO, colour=SEXO, fill=SEXO)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar(theta="y", start=0) +
+  facet_wrap(~PROVINCIA, ncol=5) + #permite hacer la división por provincias
+  ggtitle("Porcentaje de fallecidos según sexo por provincias") +
+  geom_text(aes(x = 1, label = paste(round(prop,1),"%")), position = position_stack(vjust = .5),color = "black",   size=2.8) + #texto
+  theme_void()
+```
+
+Gráfico pie con el porcentaje de contagios de hombres y mujeres por provincia
+
+```{r}
+positivos_c %>% 
+  group_by(PROVINCIA, SEXO) %>%
+  summarise(conteo= n())%>%
+  mutate(prop = conteo / sum(conteo)*100) %>%
+
+  ggplot( aes(x=" ", y=prop, group=SEXO, colour=SEXO, fill=SEXO)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar(theta="y", start=0) +
+  facet_wrap(~PROVINCIA, ncol=5) + #permite hacer la división por provincias
+  ggtitle("Porcentaje de contagios según sexo por provincias") +
+  geom_text(aes(x = 1, label = paste(round(prop,1),"%")), position = position_stack(vjust = .5),color = "black",   size=2.8) + #texto
+  theme_void()
+```
+
+
+**3.7)**
+
+Gráfico de barras con el porcentaje de dosis aplicadas según el número de dosis y el sexo
+
+```{r}
+ggplot(vacunados_c, aes(x=DOSIS,fill=SEXO))+
+  geom_bar(position="fill")+ #fill para porcentaje
+  xlab("Dosis") + ylab("Porcentaje de dosis")  +
+  labs(fill="Sexo") +
+  ggtitle("Porcentaje de dosis aplicadas en Cajamarca según número de dosis y sexo") +
+  ggeasy::easy_center_title() + #centrar título
+  coord_flip() +
+ # theme(legend.position='top')+
+  scale_y_continuous(labels = scales::percent_format()) # Draw ggplot2 plot scaled to 100%
+```
+
+**3.8)**
+
+
+```{r}
+colnames(tabla1_positivos) <- c("fecha", "número")
+tabla1_positivos$tipo <- "positivos"
+
+colnames(tabla1_fallecidos) <- c("fecha", "número")
+tabla1_fallecidos$tipo <- "fallecidos"
+
+base_final <- rbind(tabla1_positivos, tabla1_fallecidos)
+```
+
+Gráfico de líneas de tiempo que muestra la evolución de los positivos y fallecidos en Cajamarca
+
+```{r}
+base_final  %>%
+  ggplot( aes(x=fecha, y=número, group=tipo, color=tipo)) +
+    geom_line() +
+    geom_point() +
+    ggtitle("Evolución del Covid-19 en CAJAMARCA") +
+    ylab("Número de personas")+ 
+    ggeasy::easy_center_title() + #centrar título
+    theme(axis.text.x = element_text(angle = 90)) + #rotar el label del eje x 
+    scale_y_continuous(labels = scales::comma) #para que los números no estén en notación científica en el axis y
+
+```
+
+
+
+
